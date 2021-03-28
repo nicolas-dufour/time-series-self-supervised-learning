@@ -8,6 +8,10 @@ class TripletLoss(nn.Module):
 
     def forward(self, batch_emb, pos_batch_emb):
         batch_size = batch_emb.shape[0]
+        
+        batch_emb = batch_emb/batch_emb.norm(dim=-1)[:, None]
+        pos_batch_emb = pos_batch_emb/pos_batch_emb.norm(dim=-1)[:, None]
+        
         cov = torch.mm(batch_emb, batch_emb.t().contiguous())
         sim = torch.sigmoid(-cov)
 
