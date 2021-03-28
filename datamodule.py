@@ -27,7 +27,7 @@ class UnivariateTrainDataset(Dataset):
             #print('Percentage of Nan in the training set: {:.2f}\nRemoving nan...'.format(100*np.isnan(self.time_series).sum()/(self.time_series.shape[0]*self.time_series.shape[1])))
             nan_mask = np.isnan(self.time_series)
             self.time_series[nan_mask] = np.zeros(shape=np.count_nonzero(nan_mask))
-        self.min_length = min_length 
+        self.min_length = min_length
         
     def __getitem__(self, idx):
         entire_series = self.time_series[idx]
