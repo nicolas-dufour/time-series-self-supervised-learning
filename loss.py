@@ -13,7 +13,7 @@ class TripletLoss(nn.Module):
         pos_batch_emb = pos_batch_emb/pos_batch_emb.norm(dim=-1)[:, None]
         
         cov = torch.mm(batch_emb, batch_emb.t().contiguous())
-        sim = torch.sigmoid(-cov)
+        sim = torch.sigmoid(cov)
 
         mask  = ~torch.eye(batch_size, device = sim.device).bool()
         neg = sim.masked_select(mask).view(batch_size,-1)
