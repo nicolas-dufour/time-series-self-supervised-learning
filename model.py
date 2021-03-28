@@ -13,7 +13,6 @@
 # 2) Another idea we might investigate is the introduction of attention mechanism after the Causal CNN blocks.
 
 import torch
-
 class CausalConvolutionBlock(torch.nn.Module):
     """
     Causal convolution block, composed sequentially of two causal convolutions
@@ -184,4 +183,5 @@ class SqueezeChannels(torch.nn.Module):
 
     def forward(self, x):
         return x.squeeze(2)
+
 

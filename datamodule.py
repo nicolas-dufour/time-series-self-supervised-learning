@@ -144,7 +144,7 @@ class TimeSeriesDataModule(LightningDataModule):
         self.num_workers = num_workers
         
     
-    def setup(self):
+    def setup(self, stage):
         if self.multivariate:
             raise "Multivariate not implemented yet"
         else:
