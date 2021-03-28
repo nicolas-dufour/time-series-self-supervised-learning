@@ -3,3 +3,5 @@ scrap_notebook.ipynb
 .ipynb_checkpoints
 .DS_Store
 __pycache__
+checkpoints
+wandb
