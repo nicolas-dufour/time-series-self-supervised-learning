@@ -18,12 +18,16 @@ class UnivariateTrainDataset(Dataset):
         min_length: int, Optional, default=20
             Minimum size of the subsample time series 
     '''
-    def __init__(self, path, min_length =20):
+    def __init__(self, path, min_length=20, fill_na=False):
         super().__init__()
         data = pd.read_csv(path,sep='\t', header=None)
         self.time_series = np.array(data.iloc[:,1:])
         
-        self.min_length = min_length
+        if fill_na:
+            #print('Percentage of Nan in the training set: {:.2f}\nRemoving nan...'.format(100*np.isnan(self.time_series).sum()/(self.time_series.shape[0]*self.time_series.shape[1])))
+            nan_mask = np.isnan(self.time_series)
+            self.time_series[nan_mask] = np.zeros(shape=np.count_nonzero(nan_mask))
+        self.min_length = min_length 
         
     def __getitem__(self, idx):
         entire_series = self.time_series[idx]
@@ -59,10 +63,14 @@ class UnivariateTestDataset(Dataset):
         min_length: int, Optional, default=20
             Minimum size of the subsample time series 
     '''
-    def __init__(self, path, min_length =20):
+    def __init__(self, path, min_length=20, fill_na=False):
         super().__init__()
         data = pd.read_csv(path,sep='\t', header=None)
         self.time_series = np.array(data.iloc[:,1:])
+        if fill_na:
+            #print('Percentage of Nan in the test set: {:.2f}\nRemoving nan...'.format(100*np.isnan(self.time_series).sum()/(self.time_series.shape[0]*self.time_series.shape[1])))
+            nan_mask = np.isnan(self.time_series)
+            self.time_series[nan_mask] = np.zeros(shape=np.count_nonzero(nan_mask))
         self.labels = np.array(data.iloc[:,0])
         self.min_length = min_length
         
@@ -124,11 +132,12 @@ def univariate_test_collate_fn(batch):
 
 
 class TimeSeriesDataModule(LightningDataModule):
-    def __init__(self, train_path, val_path, batch_size, num_workers, min_length=20, multivariate=False):
+    def __init__(self, train_path, val_path, batch_size, num_workers, min_length=20, fill_na=False, multivariate=False):
         super().__init__()
         self.train_path = train_path
         self.test_path = val_path
         self.min_length = min_length
+        self.fill_na = fill_na
         self.multivariate = multivariate
 
         self.batch_size = batch_size
@@ -141,13 +150,16 @@ class TimeSeriesDataModule(LightningDataModule):
         else:
             self.train_set = UnivariateTrainDataset(
                 self.train_path,
-                self.min_length)
+                self.min_length, 
+                self.fill_na)
             self.val_set = UnivariateTestDataset(
                 self.train_path,
-                self.min_length)
+                self.min_length, 
+                self.fill_na)
             self.test_set = UnivariateTestDataset(
                 self.test_path,
-                self.min_length)
+                self.min_length, 
+                self.fill_na)
     def train_dataloader(self):
         return DataLoader(
             self.train_set,
