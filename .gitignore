@@ -5,3 +5,4 @@ scrap_notebook.ipynb
 __pycache__
 checkpoints
 wandb
+lightning_logs
