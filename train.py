@@ -24,7 +24,8 @@ class TimeSeriesEmbedder(pl.LightningModule):
             kernel_size=kernel_size,
         )
         self.criterium = TripletLoss()
-
+        self.train_path = train_path
+        self.test_path = test_path
         self.val_tsne_rep = pd.DataFrame(columns=["labels", "x", "y", "step"])
 
     def forward(self, x):
