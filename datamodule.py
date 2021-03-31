@@ -98,10 +98,10 @@ class MultivariateTrainDataset(Dataset):
         min_length: int, Optional, default=20
             Minimum size of the subsample time series 
     '''
-    def __init__(self, dataset, root_data='./data/Multivariate/', min_length=20, fill_na=False):
+    def __init__(self, dataset, min_length=20, fill_na=False):
         super().__init__()
         
-        self.time_series, _ , _, _ = fetch_uea_dataset(dataset, use_cache=False, data_home=root_data, return_X_y=True)
+        self.time_series, _ , _, _ = fetch_uea_dataset(dataset, use_cache=True, return_X_y=True)
         
         if fill_na:
             #print('Percentage of Nan in the training set: {:.2f}\nRemoving nan...'.format(100*np.isnan(self.time_series).sum()/(self.time_series.shape[0]*self.time_series.shape[1])))
@@ -144,10 +144,13 @@ class MultivariateTestDataset(Dataset):
         min_length: int, Optional, default=20
             Minimum size of the subsample time series 
     '''
-    def __init__(self, dataset, root_data, min_length=20, fill_na=False):
+    def __init__(self, dataset, min_length=20, fill_na=False, get_train=False):
         super().__init__()  
         
-        _, self.time_series , _, self.labels = fetch_uea_dataset(dataset, use_cache=False, data_home=root_data, return_X_y=True)
+        if not get_train:
+            _, self.time_series , _, self.labels = fetch_uea_dataset(dataset, use_cache=False, return_X_y=True)
+        else:
+            self.time_series,  _ , self.labels , _ = fetch_uea_dataset(dataset, use_cache=False, return_X_y=True)
         
         if fill_na:
             nan_mask = np.isnan(self.time_series)
@@ -276,7 +279,6 @@ class TimeSeriesDataModule(LightningDataModule):
         batch_size,
         num_workers,
         dataset_name=None,
-        root_data=None,
         min_length=20,
         fill_na=False,
         multivariate=False,
@@ -284,14 +286,13 @@ class TimeSeriesDataModule(LightningDataModule):
         super().__init__()
         
         #If using Multivariate dataset, we need to provide dataset_name and the root_data of where live the multivariates datasets"
-        assert multivariate==False or (multivariate==True and (dataset_name is not None) and (root_data is not None))
+        assert multivariate==False or (multivariate==True and dataset_name is not None)
         
         self.train_path = train_path
         self.test_path = val_path
         self.min_length = min_length
         self.fill_na = fill_na
         self.dataset_name = dataset_name
-        self.root_data = root_data
         self.multivariate = multivariate
         
 
@@ -301,13 +302,13 @@ class TimeSeriesDataModule(LightningDataModule):
     def setup(self, stage=None):
         if self.multivariate:
             self.train_set = MultivariateTrainDataset(
-                self.dataset_name,self.root_data, self.min_length, self.fill_na
+                self.dataset_name, self.min_length, self.fill_na
             )
             self.val_set = MultivariateTestDataset(
-                self.dataset_name,self.root_data, self.min_length, self.fill_na
+                self.dataset_name, self.min_length, self.fill_na
             )
             self.test_set = MultivariateTestDataset(
-                self.dataset_name,self.root_data, self.min_length, self.fill_na
+                self.dataset_name, self.min_length, self.fill_na
             )
         else:
             self.train_set = UnivariateTrainDataset(

@@ -4,7 +4,7 @@ from sklearn.svm import SVC
 import pytorch_lightning as pl
 from loss import TripletLoss
 from model import CausalCNNEncoder
-from datamodule import UnivariateTestDataset
+from datamodule import UnivariateTestDataset, MultivariateTestDataset
 import plotly.express as px
 import torch
 import numpy as np
@@ -12,7 +12,7 @@ import pandas as pd
 
 
 class TimeSeriesEmbedder(pl.LightningModule):
-    def __init__(self, in_channels, channels, depth, reduced_size, out_channels, kernel_size, lr, weight_decay, betas, train_path, test_path):
+    def __init__(self, in_channels, channels, depth, reduced_size, out_channels, kernel_size, lr, weight_decay, betas, train_path, test_path, dataset_name='', multivariate=False):
         super().__init__()
         self.save_hyperparameters()
         self.encoder = CausalCNNEncoder(
@@ -21,11 +21,12 @@ class TimeSeriesEmbedder(pl.LightningModule):
             depth=depth,
             reduced_size=reduced_size,
             out_channels=out_channels,
-            kernel_size=kernel_size,
-        )
+            kernel_size=kernel_size)
         self.criterium = TripletLoss()
         self.train_path = train_path
         self.test_path = test_path
+        self.dataset_name = dataset_name
+        self.multivariate=multivariate
         self.val_tsne_rep = pd.DataFrame(columns=["labels", "x", "y", "step"])
 
     def forward(self, x):
@@ -33,24 +34,31 @@ class TimeSeriesEmbedder(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         ref_series, pos_series = batch
-        ref_emb = self(ref_series[:, None, :])
-        pos_emb = self(pos_series[:, None, :])
+        if self.multivariate:
+            ref_emb = self(ref_series)
+            pos_emb = self(pos_series)
+        else:
+            ref_emb = self(ref_series[:, None, :])
+            pos_emb = self(pos_series[:, None, :])
         loss = self.criterium(ref_emb, pos_emb)
         self.log("train_loss", loss, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         labels, series = batch
-        emb = self(series[:, None, :])
+        if self.multivariate:
+            emb = self(series)
+        else:
+            emb = self(series[:, None, :])
         return {"labels": labels, "emb": emb.cpu()}
 
     def validation_epoch_end(self, val_step_outputs):
-        labels = val_step_outputs[0]["labels"]
-        embs = val_step_outputs[0]["emb"]
+        labels = val_step_outputs[0]["labels"].cpu().numpy()
+        embs = val_step_outputs[0]["emb"].cpu().numpy()
 
         for i in range(1, len(val_step_outputs)):
-            labels = np.concatenate((labels, val_step_outputs[i]["labels"]), axis=0)
-            embs = np.concatenate((embs, val_step_outputs[i]["emb"]), axis=0)
+            labels = np.concatenate((labels, val_step_outputs[i]["labels"].cpu().numpy()), axis=0)
+            embs = np.concatenate((embs, val_step_outputs[i]["emb"].cpu().numpy()), axis=0)
 
         tsne = TSNE(n_components=2, random_state=21)
         projected_emb = pd.DataFrame(
@@ -72,16 +80,19 @@ class TimeSeriesEmbedder(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         labels, series = batch
-        emb = self(series[:, None, :])
+        if self.multivariate:
+            emb = self(series)
+        else:
+            emb = self(series[:, None, :])
         return {"labels": labels, "emb": emb.cpu()}
 
     def test_epoch_end(self, val_step_outputs):
-        labels = val_step_outputs[0]["labels"]
-        embs = val_step_outputs[0]["emb"]
+        labels = val_step_outputs[0]["labels"].cpu().numpy()
+        embs = val_step_outputs[0]["emb"].cpu().numpy()
 
         for i in range(1, len(val_step_outputs)):
-            labels = np.concatenate((labels, val_step_outputs[i]["labels"]), axis=0)
-            embs = np.concatenate((embs, val_step_outputs[i]["emb"]), axis=0)
+            labels = np.concatenate((labels, val_step_outputs[i]["labels"].cpu().numpy()), axis=0)
+            embs = np.concatenate((embs, val_step_outputs[i]["emb"].cpu().numpy()), axis=0)
 
         tsne = TSNE(n_components=2, random_state=21)
         projected_emb = pd.DataFrame(
@@ -106,10 +117,14 @@ class TimeSeriesEmbedder(pl.LightningModule):
         '''
             Compute SVM accuracy score on the train then test set. Is sufficient train data, SVM C hyperparameters is found using grid search.  
         '''
-        
-        train_set = UnivariateTestDataset(self.train_path, fill_na=True)
-        train_emb = self(torch.Tensor(train_set.time_series[:,None,:])).detach().numpy()
-        train_labels = train_set.labels
+        if not self.multivariate:
+            train_set = UnivariateTestDataset(self.train_path, fill_na=True)
+            train_emb = self(torch.Tensor(train_set.time_series[:,None,:].cuda())).detach().numpy()
+            train_labels = train_set.labels
+        else:
+            train_set = MultivariateTestDataset(self.dataset_name,  fill_na=True, get_train=True)
+            train_emb = self(torch.Tensor(train_set.time_series).cuda()).cpu().detach().numpy()
+            train_labels = train_set.labels
         
         nb_classes = len(np.unique(train_labels))
         train_size = train_emb.shape[0]
@@ -139,9 +154,16 @@ class TimeSeriesEmbedder(pl.LightningModule):
         
         
         # Predict class for the test set
-        test_set = UnivariateTestDataset(self.test_path, fill_na=True)
-        test_emb = self(torch.Tensor(test_set.time_series[:,None,:])).detach().numpy()
-        test_labels = test_set.labels
+        if not self.multivariate:
+            test_set = UnivariateTestDataset(self.test_path, fill_na=True)
+            test_emb = self(torch.Tensor(test_set.time_series[:,None,:])).detach().numpy()
+            test_labels = test_set.labels
+        else:
+            test_set = MultivariateTestDataset(self.dataset_name,  fill_na=True)
+            test_emb = self(torch.Tensor(train_set.time_series).cuda()).cpu().detach().numpy()
+            test_labels = test_set.labels        
+        
+
         
         self.test_score = np.mean(cross_val_score(classifier, test_emb, y=test_labels, cv=5, n_jobs=5))
 
