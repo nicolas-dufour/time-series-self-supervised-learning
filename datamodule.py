@@ -5,6 +5,8 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import Dataset, DataLoader
 import torch
 from torch.nn.utils.rnn import pad_sequence
+from sklearn import preprocessing
+
 
 
 class UnivariateTrainDataset(Dataset):
@@ -148,13 +150,18 @@ class MultivariateTestDataset(Dataset):
         super().__init__()  
         
         if not get_train:
-            _, self.time_series , _, self.labels = fetch_uea_dataset(dataset, use_cache=False, return_X_y=True)
+            _, self.time_series , _, self.labels_bytes = fetch_uea_dataset(dataset, use_cache=False, return_X_y=True)
         else:
-            self.time_series,  _ , self.labels , _ = fetch_uea_dataset(dataset, use_cache=False, return_X_y=True)
+            self.time_series,  _ , self.labels_bytes , _ = fetch_uea_dataset(dataset, use_cache=False, return_X_y=True)
         
         if fill_na:
             nan_mask = np.isnan(self.time_series)
             self.time_series[nan_mask] = np.zeros(shape=np.count_nonzero(nan_mask))
+
+        label_encoder = preprocessing.LabelEncoder()
+        label_encoder.fit(self.labels_bytes)
+        self.labels = label_encoder.transform(self.labels_bytes)
+
         
     def __getitem__(self, idx):
         entire_series = self.time_series[idx]
