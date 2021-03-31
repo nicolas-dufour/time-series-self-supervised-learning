@@ -44,39 +44,39 @@ class TimeSeriesEmbedder(pl.LightningModule):
         self.log("train_loss", loss, on_epoch=True)
         return loss
 
-    def validation_step(self, batch, batch_idx):
-        labels, series = batch
-        if self.multivariate:
-            emb = self(series)
-        else:
-            emb = self(series[:, None, :])
-        return {"labels": labels, "emb": emb.cpu()}
+    # def validation_step(self, batch, batch_idx):
+    #     labels, series = batch
+    #     if self.multivariate:
+    #         emb = self(series)
+    #     else:
+    #         emb = self(series[:, None, :])
+    #     return {"labels": labels, "emb": emb.cpu()}
 
-    def validation_epoch_end(self, val_step_outputs):
-        labels = val_step_outputs[0]["labels"].cpu().numpy()
-        embs = val_step_outputs[0]["emb"].cpu().numpy()
+    # def validation_epoch_end(self, val_step_outputs):
+    #     labels = val_step_outputs[0]["labels"].cpu().numpy()
+    #     embs = val_step_outputs[0]["emb"].cpu().numpy()
 
-        for i in range(1, len(val_step_outputs)):
-            labels = np.concatenate((labels, val_step_outputs[i]["labels"].cpu().numpy()), axis=0)
-            embs = np.concatenate((embs, val_step_outputs[i]["emb"].cpu().numpy()), axis=0)
+    #     for i in range(1, len(val_step_outputs)):
+    #         labels = np.concatenate((labels, val_step_outputs[i]["labels"].cpu().numpy()), axis=0)
+    #         embs = np.concatenate((embs, val_step_outputs[i]["emb"].cpu().numpy()), axis=0)
 
-        tsne = TSNE(n_components=2, random_state=21)
-        projected_emb = pd.DataFrame(
-            np.concatenate((labels[:, None], tsne.fit_transform(embs)), axis=1),
-            columns=["labels", "x", "y"],
-        )
-        projected_emb["labels"] = projected_emb["labels"].astype("int").astype("str")
-        projected_emb["step"] = self.global_step
-        self.val_tsne_rep = pd.concat([self.val_tsne_rep, projected_emb])
+    #     tsne = TSNE(n_components=2, random_state=21)
+    #     projected_emb = pd.DataFrame(
+    #         np.concatenate((labels[:, None], tsne.fit_transform(embs)), axis=1),
+    #         columns=["labels", "x", "y"],
+    #     )
+    #     projected_emb["labels"] = projected_emb["labels"].astype("int").astype("str")
+    #     projected_emb["step"] = self.global_step
+    #     self.val_tsne_rep = pd.concat([self.val_tsne_rep, projected_emb])
 
-        if self.global_step == self.trainer.max_steps:
-            self.log(
-                "TSNE_train_proj",
-                px.scatter(
-                    projected_emb, x="x", y="y", color="labels", animation_frame="step"
-                ),
-            )
-            print("Ended")
+    #     if self.global_step == self.trainer.max_steps:
+    #         self.log(
+    #             "TSNE_train_proj",
+    #             px.scatter(
+    #                 projected_emb, x="x", y="y", color="labels", animation_frame="step"
+    #             ),
+    #         )
+    #         print("Ended")
 
     def test_step(self, batch, batch_idx):
         labels, series = batch
@@ -117,10 +117,16 @@ class TimeSeriesEmbedder(pl.LightningModule):
         '''
             Compute SVM accuracy score on the train then test set. Is sufficient train data, SVM C hyperparameters is found using grid search.  
         '''
+        train_loader = self.datamodule.val_dataloader()
+        test_loader = self.datamodule.test_dataloader()
         if not self.multivariate:
-            train_set = UnivariateTestDataset(self.train_path, fill_na=True)
-            train_emb = self(torch.Tensor(train_set.time_series[:,None,:].cuda())).detach().numpy()
-            train_labels = train_set.labels
+            train_emb = list()
+            train_labels = list()
+            for _, (labels, train_series) in enumerate(train_loader):
+                train_emb.append(self(train_series[:,None,:].cuda()).cpu().detach().numpy())
+                train_labels.append(labels.numpy())
+            train_emb = np.concatenate(train_emb)
+            train_labels = np.concatenate(train_labels)
         else:
             train_set = MultivariateTestDataset(self.dataset_name,  fill_na=True, get_train=True)
             train_emb = self(torch.Tensor(train_set.time_series).cuda()).cpu().detach().numpy()
@@ -155,9 +161,13 @@ class TimeSeriesEmbedder(pl.LightningModule):
         
         # Predict class for the test set
         if not self.multivariate:
-            test_set = UnivariateTestDataset(self.test_path, fill_na=True)
-            test_emb = self(torch.Tensor(test_set.time_series[:,None,:])).detach().numpy()
-            test_labels = test_set.labels
+            test_emb = list()
+            test_labels = list()
+            for _, (labels, test_series) in enumerate(test_loader):
+                test_emb.append(self(test_series[:,None,:].cuda()).cpu().detach().numpy())
+                test_labels.append(labels.numpy())
+            test_emb = np.concatenate(test_emb)
+            test_labels = np.concatenate(test_labels)
         else:
             test_set = MultivariateTestDataset(self.dataset_name,  fill_na=True)
             test_emb = self(torch.Tensor(test_set.time_series).cuda()).cpu().detach().numpy()
