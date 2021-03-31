@@ -160,7 +160,7 @@ class TimeSeriesEmbedder(pl.LightningModule):
             test_labels = test_set.labels
         else:
             test_set = MultivariateTestDataset(self.dataset_name,  fill_na=True)
-            test_emb = self(torch.Tensor(train_set.time_series).cuda()).cpu().detach().numpy()
+            test_emb = self(torch.Tensor(test_set.time_series).cuda()).cpu().detach().numpy()
             test_labels = test_set.labels        
         
 
