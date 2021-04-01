@@ -312,7 +312,7 @@ class TimeSeriesDataModule(LightningDataModule):
                 self.dataset_name, self.min_length, self.fill_na
             )
             self.val_set = MultivariateTestDataset(
-                self.dataset_name, self.min_length, self.fill_na
+                self.dataset_name, self.min_length, self.fill_na, get_train=True,
             )
             self.test_set = MultivariateTestDataset(
                 self.dataset_name, self.min_length, self.fill_na
