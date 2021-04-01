@@ -156,22 +156,15 @@ class CausalCNNEncoder(torch.nn.Module):
         reduced_size,
         out_channels,
         kernel_size,
-        global_average_pooling=True,
-        time_series_length=None,
-    ):
+        global_average_pooling=True):
         super(CausalCNNEncoder, self).__init__()
-
-        # If using fully-connected layer to squeeze the temporal dimension, the length of the time series should be known.
-        assert global_average_pooling == True or (
-            global_average_pooling == False and time_series_length is not None
-        )
 
         causal_cnn = CausalCNN(in_channels, channels, depth, reduced_size, kernel_size)
 
         if global_average_pooling:
             reduce_size = torch.nn.AdaptiveMaxPool1d(1)
         else:
-            reduce_size = torch.nn.Linear(time_series_length, 1)
+            reduce_size = Mean()
 
         # Squeezes the third dimension (time)
         squeeze = SqueezeChannels()
@@ -182,6 +175,22 @@ class CausalCNNEncoder(torch.nn.Module):
 
     def forward(self, x):
         return self.network(x)
+    
+
+class Mean(torch.nn.Module):
+    """
+    Used to squeeze the temporal dimension of the tensors, instead of the adaptative global average pooling.
+
+    Takes as input a three-dimensional tensor (`B`, `C`, `L`) where `B` is the
+    batch size, `C` is the number of input channels, and `L` is the length of
+    the input. Outputs a three-dimensional tensor (`B`, `C`, 1).
+
+    """
+
+    def __init__(self):
+        super(Mean, self).__init__()
+    def forward(self, x):
+        return torch.mean(x,dim=2, keepdim=True)
 
 
 class Chomp1d(torch.nn.Module):
