@@ -27,6 +27,7 @@ class TimeSeriesEmbedder(pl.LightningModule):
         multivariate=False,
         loss="xent",
         temp=1,
+        global_average_pooling=False,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -37,6 +38,7 @@ class TimeSeriesEmbedder(pl.LightningModule):
             reduced_size=reduced_size,
             out_channels=out_channels,
             kernel_size=kernel_size,
+            global_average_pooling=global_average_pooling
         )
         self.multivariate = multivariate
 #         self.val_tsne_rep = pd.DataFrame(columns=["labels", "x", "y", "step"])
