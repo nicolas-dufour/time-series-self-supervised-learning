@@ -50,8 +50,8 @@ class TimeSeriesEmbedder(pl.LightningModule):
 
     def validation_epoch_end(self, val_step_outputs):
         train_score, test_score = self.compute_scores()
-        self.log("train_accuracy",train_score, on_epoch=True)
-        self.log("test_accuracy",test_score, on_epoch=True)
+        self.log("Train score",train_score, on_epoch=True)
+        self.log("Test Score",test_score, on_epoch=True)
         return
 
 
