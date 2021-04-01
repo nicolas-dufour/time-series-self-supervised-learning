@@ -7,7 +7,7 @@ def compute_accuracy(model, datamodule):
     """
         Compute SVM accuracy score on the train then test set. Is sufficient train data, SVM C hyperparameters is found using grid search.  
     """
-
+    model = model.cuda()
     if not model.multivariate:
         train_loader = datamodule.val_dataloader()
         test_loader = datamodule.test_dataloader()
