@@ -6,6 +6,12 @@ import numpy as np
 def compute_accuracy(model, datamodule):
     """
         Compute SVM accuracy score on the train then test set. Is sufficient train data, SVM C hyperparameters is found using grid search.  
+        Parameters:
+        -----------
+            model: Pytorch Lightning Module
+                The model we want to score
+            datamodule: Pytorch Lightning DataModule
+                The datamodule of the data we want to score
     """
     model = model.cuda()
     if not model.multivariate:

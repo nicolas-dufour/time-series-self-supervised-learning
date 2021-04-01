@@ -3,6 +3,14 @@ import torch.nn as nn
 
 
 class TripletLossLogi(nn.Module):
+    '''
+    The contrastive Logistic Loss.
+
+    Parameters:
+    ----------
+        temp: The temperature parameter.
+    '''
+
     def __init__(self, temp=1):
         super().__init__()
         self.temp = temp
@@ -28,6 +36,14 @@ class TripletLossLogi(nn.Module):
 
 
 class TripletLossXent(nn.Module):
+     '''
+        The contrastive Logistic Loss.
+
+        Parameters:
+        ----------
+            temp: The temperature parameter.
+        '''
+
     def __init__(self, temp=1):
         super().__init__()
         self.temp = temp
