@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 
 
-class TripletLoss(nn.Module):
-    def __init__(self):
+class TripletLossLogi(nn.Module):
+    def __init__(self, temp=1):
         super().__init__()
-        # self.num_negative_samples = num_negative_samples
+        self.temp = temp
 
     def forward(self, batch_emb, pos_batch_emb):
         batch_size = batch_emb.shape[0]
@@ -14,24 +14,23 @@ class TripletLoss(nn.Module):
         pos_batch_emb = pos_batch_emb / pos_batch_emb.norm(dim=-1)[:, None]
 
         cov = torch.mm(batch_emb, batch_emb.t().contiguous())
-        sim = torch.sigmoid(-cov)
+        sim = torch.sigmoid(-cov/ self.temp)
 
         mask = ~torch.eye(batch_size, device=sim.device).bool()
         neg = sim.masked_select(mask).view(batch_size, -1)
         neg_loss = -torch.sum(torch.log(neg), dim=-1)
 
-        pos = torch.sigmoid(torch.sum(batch_emb * pos_batch_emb, dim=-1))
+        pos = torch.sigmoid(torch.sum(batch_emb * pos_batch_emb, dim=-1)/self.temp)
 
         pos_loss = -torch.log(pos)
 
         return (pos_loss + neg_loss).mean()
 
 
-class TripletLossSIMCLR(nn.Module):
+class TripletLossXent(nn.Module):
     def __init__(self, temp=1):
         super().__init__()
         self.temp = temp
-        # self.num_negative_samples = num_negative_samples
 
     def forward(self, batch_emb, pos_batch_emb):
         batch_size = batch_emb.shape[0]
