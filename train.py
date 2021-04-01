@@ -2,7 +2,7 @@ from sklearn.manifold import TSNE
 from sklearn.model_selection import (GridSearchCV,train_test_split, cross_val_score)
 from sklearn.svm import SVC
 import pytorch_lightning as pl
-from loss import TripletLoss
+from loss import TripletLoss, TripletLossSIMCLR
 from model import CausalCNNEncoder
 from datamodule import UnivariateTestDataset, MultivariateTestDataset
 import plotly.express as px
@@ -12,7 +12,7 @@ import pandas as pd
 
 
 class TimeSeriesEmbedder(pl.LightningModule):
-    def __init__(self, in_channels, channels, depth, reduced_size, out_channels, kernel_size, lr, weight_decay, betas, train_path, test_path, dataset_name='', multivariate=False):
+    def __init__(self, in_channels, channels, depth, reduced_size, out_channels, kernel_size, lr, weight_decay, betas, train_path, test_path, dataset_name='', multivariate=False, loss_name='TripletLossSIMCLR'):
         super().__init__()
         self.save_hyperparameters()
         self.encoder = CausalCNNEncoder(
@@ -22,7 +22,7 @@ class TimeSeriesEmbedder(pl.LightningModule):
             reduced_size=reduced_size,
             out_channels=out_channels,
             kernel_size=kernel_size)
-        self.criterium = TripletLoss()
+        self.criterium = TripletLoss() if loss_name=='TripletLoss' else TripletLossSIMCLR() if loss_name=='TripletLossSIMCLR' else None
         self.train_path = train_path
         self.test_path = test_path
         self.dataset_name = dataset_name
@@ -128,21 +128,24 @@ class TimeSeriesEmbedder(pl.LightningModule):
         '''
             Compute SVM accuracy score on the train then test set. Is sufficient train data, SVM C hyperparameters is found using grid search.  
         '''
+        train_loader = self.datamodule.val_dataloader()
+        test_loader = self.datamodule.test_dataloader()
+        train_emb = list()
+        train_labels = list()        
 
         if not self.multivariate:
-            train_loader = self.datamodule.val_dataloader()
-            test_loader = self.datamodule.test_dataloader()
-            train_emb = list()
-            train_labels = list()
             for _, (labels, train_series) in enumerate(train_loader):
                 train_emb.append(self(train_series[:,None,:].cuda()).cpu().detach().numpy())
                 train_labels.append(labels.numpy())
             train_emb = np.concatenate(train_emb)
             train_labels = np.concatenate(train_labels)
         else:
-            train_set = MultivariateTestDataset(self.dataset_name,  fill_na=True, get_train=True)
-            train_emb = self(torch.Tensor(train_set.time_series).cuda()).cpu().detach().numpy()
-            train_labels = train_set.labels
+            for _, (labels, train_series) in enumerate(train_loader):
+                train_emb.append(self(train_series.cuda()).cpu().detach().numpy())
+                train_labels.append(labels.numpy())
+            train_emb = np.concatenate(train_emb)
+            train_labels = np.concatenate(train_labels)
+            
         
         nb_classes = len(np.unique(train_labels))
         train_size = train_emb.shape[0]
@@ -181,10 +184,14 @@ class TimeSeriesEmbedder(pl.LightningModule):
             test_emb = np.concatenate(test_emb)
             test_labels = np.concatenate(test_labels)
         else:
-            test_set = MultivariateTestDataset(self.dataset_name,  fill_na=True)
-            test_emb = self(torch.Tensor(test_set.time_series).cuda()).cpu().detach().numpy()
-            test_labels = test_set.labels        
-        
+            test_emb = list()
+            test_labels = list()
+            for _, (labels, test_series) in enumerate(test_loader):
+                test_emb.append(self(test_series.cuda()).cpu().detach().numpy())
+                test_labels.append(labels.numpy())
+            test_emb = np.concatenate(test_emb)
+            test_labels = np.concatenate(test_labels)
+
 
         
         self.test_score = np.mean(cross_val_score(classifier, test_emb, y=test_labels, cv=5, n_jobs=5))
