@@ -1,11 +1,11 @@
 # This is inspired by the authors's implementation of `Unsupervised Scalable Representation Learning for Multivariate Time Series`.
 # In order to study in more details the architecture, we added:
 
-# 1) The possibility of replacing the Average Poling layer by a fully-connected layer (by setting the global_average_pooling
+# 1) The possibility of replacing the Average Poling layer by the mean (by setting the global_average_pooling
 #    attribute of CausalCNNEncoder() to False.
 #    This step aims at squeezing the temporal dimension and aggregating all temporal information in a fixed-size vector (the embedding).
 #    Our intuition is that the Global Average Pooling is used here as a regularizer, as it doesn't introduce any parameters
-#    to optimize, contrary to a fully-connected layer. (More detailed information can be found in the article `Network In Network (Lin et al. 2014)`
+#    to optimize (contrary to a fully-connected layer for instance). (More detailed information can be found in the article `Network In Network (Lin et al. 2014)`
 #    Furthermore, using global average pooling is more convenient as the whole model is therefore independant from the time-series length,
 #    whereas using a fully-connected layer to squeeze the temporal dimension requires to know the length of the input time series.
 #    We still led some experiment to study performances change.
