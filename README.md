@@ -1,4 +1,4 @@
-# Time series self supervised learning
+# Time series Self Supervised Learning
 
 The paper under scrutiny, Unsupervised Scalable Representation Learning for Multivariate Time Series, proposes an unsupervised method for learning universal embeddings of time series.
 
